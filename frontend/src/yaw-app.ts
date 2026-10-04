@@ -1,5 +1,6 @@
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import "./wall";
 
 type LogRow = {
   id: number;
@@ -27,7 +28,7 @@ export class YawAlignApp extends LitElement {
       min-height: 100vh;
       box-sizing: border-box;
       padding: 1.5rem;
-      max-width: 960px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     h1 {
@@ -121,9 +122,47 @@ export class YawAlignApp extends LitElement {
       flex-wrap: wrap;
       align-items: center;
     }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .topbar .brand {
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-right: auto;
+      white-space: nowrap;
+    }
+    .topbar nav {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .topbar nav button {
+      background: transparent;
+      border: 1px solid #475569;
+      font-weight: 500;
+      padding: 0.4rem 0.8rem;
+    }
+    .topbar nav button.active {
+      background: #0284c7;
+      border-color: #0284c7;
+      color: #fff;
+    }
+    .topbar .who {
+      color: #94a3b8;
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
   `;
 
   @state() private session: Session | null = null;
+  @state() private view: "wall" | "logs" = "wall";
   @state() private logs: LogRow[] = [];
   @state() private loginUser = "technician";
   @state() private loginPass = "tech123456";
@@ -282,84 +321,113 @@ export class YawAlignApp extends LitElement {
     }
 
     return html`
-      <h1>风机偏航对中台</h1>
-      <p class="sub">
-        已登录：${this.session.username}
-        (${this.isWriter ? "可提交" : "只读"})
-      </p>
-      <section>
-        <div class="row-actions">
-          <button class="secondary" @click=${this.logout}>退出</button>
-          <button class="secondary" ?disabled=${this.loading} @click=${this.refreshLogs}>
-            刷新列表
+      <div class="topbar">
+        <span class="brand">风机偏航对中台</span>
+        <nav aria-label="主导航">
+          <button
+            class=${this.view === "wall" ? "active" : ""}
+            aria-current=${this.view === "wall" ? "page" : "false"}
+            @click=${() => (this.view = "wall")}
+          >
+            机位色块墙
           </button>
-        </div>
-      </section>
+          <button
+            class=${this.view === "logs" ? "active" : ""}
+            aria-current=${this.view === "logs" ? "page" : "false"}
+            @click=${() => (this.view = "logs")}
+          >
+            对中记录
+          </button>
+        </nav>
+        <span class="who">
+          ${this.session.username}（${this.isWriter ? "技师·可填报" : "观察员·只读"}）
+          <button class="secondary" style="padding:0.25rem 0.6rem;font-size:0.8rem;" @click=${this.logout}>
+            退出
+          </button>
+        </span>
+      </div>
 
-      ${this.isWriter
+      ${this.view === "wall"
         ? html`
-            <section>
-              <h2 style="margin-top:0;font-size:1.1rem;">提交偏航记录</h2>
-              <label>机组编号</label>
-              <input
-                placeholder="例如 W12"
-                .value=${this.turbineCode}
-                @input=${(e: Event) =>
-                  (this.turbineCode = (e.target as HTMLInputElement).value)}
-              />
-              <label>偏航误差（度，可正可负）</label>
-              <input
-                type="number"
-                step="0.1"
-                .value=${this.yawErr}
-                @input=${(e: Event) =>
-                  (this.yawErr = (e.target as HTMLInputElement).value)}
-              />
-              <button ?disabled=${this.loading} @click=${this.submitLog}>
-                提交（进入待认领队列）
-              </button>
-              ${this.error ? html`<p class="err">${this.error}</p>` : null}
-            </section>
+            <turbine-wall
+              .session=${this.session}
+              @yaw-unauthorized=${this.logout}
+            ></turbine-wall>
           `
-        : null}
+        : html`
+            <section>
+              <div class="row-actions">
+                <button class="secondary" ?disabled=${this.loading} @click=${this.refreshLogs}>
+                  刷新列表
+                </button>
+              </div>
+            </section>
 
-      <section>
-        <h2 style="margin-top:0;font-size:1.1rem;">对中记录</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>编号</th>
-              <th>机组</th>
-              <th>误差°</th>
-              <th>状态</th>
-              <th>结论</th>
-              <th>说明</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.logs.map(
-              (row) => html`
-                <tr>
-                  <td>${row.id}</td>
-                  <td>${row.turbine_code}</td>
-                  <td>${row.yaw_err_deg}</td>
-                  <td>
-                    <span class="tag ${row.status === "pending" ? "pending" : "ok"}">
-                      ${row.status === "pending" ? "待处理" : "已完成"}
-                    </span>
-                  </td>
-                  <td>
-                    ${row.verdict
-                      ? html`<span class="tag ${this.verdictClass(row)}">${row.verdict}</span>`
-                      : "—"}
-                  </td>
-                  <td>${row.reason ?? "—"}</td>
-                </tr>
-              `
-            )}
-          </tbody>
-        </table>
-      </section>
+            ${this.isWriter
+              ? html`
+                  <section>
+                    <h2 style="margin-top:0;font-size:1.1rem;">提交偏航记录</h2>
+                    <label>机组编号</label>
+                    <input
+                      placeholder="例如 W12"
+                      .value=${this.turbineCode}
+                      @input=${(e: Event) =>
+                        (this.turbineCode = (e.target as HTMLInputElement).value)}
+                    />
+                    <label>偏航误差（度，可正可负）</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      .value=${this.yawErr}
+                      @input=${(e: Event) =>
+                        (this.yawErr = (e.target as HTMLInputElement).value)}
+                    />
+                    <button ?disabled=${this.loading} @click=${this.submitLog}>
+                      提交（进入待认领队列）
+                    </button>
+                    ${this.error ? html`<p class="err">${this.error}</p>` : null}
+                  </section>
+                `
+              : null}
+
+            <section>
+              <h2 style="margin-top:0;font-size:1.1rem;">对中记录</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>编号</th>
+                    <th>机组</th>
+                    <th>误差°</th>
+                    <th>状态</th>
+                    <th>结论</th>
+                    <th>说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${this.logs.map(
+                    (row) => html`
+                      <tr>
+                        <td>${row.id}</td>
+                        <td>${row.turbine_code}</td>
+                        <td>${row.yaw_err_deg}</td>
+                        <td>
+                          <span class="tag ${row.status === "pending" ? "pending" : "ok"}">
+                            ${row.status === "pending" ? "待处理" : "已完成"}
+                          </span>
+                        </td>
+                        <td>
+                          ${row.verdict
+                            ? html`<span class="tag ${this.verdictClass(row)}">${row.verdict}</span>`
+                            : "—"}
+                        </td>
+                        <td>${row.reason ?? "—"}</td>
+                      </tr>
+                    `
+                  )}
+                </tbody>
+              </table>
+            </section>
+          `}
     `;
   }
 }
