@@ -25,4 +25,19 @@ CREATE TABLE IF NOT EXISTS yaw_logs (
     created_at timestamptz NOT NULL,
     processed_at timestamptz
 );
+
+CREATE TABLE IF NOT EXISTS turbines (
+    turbine_code text PRIMARY KEY,
+    x double precision NOT NULL,
+    y double precision NOT NULL
+);
 """
+
+# 机位色块墙坐标采用百分比（0-100），前端按容器宽高换算像素。
+POSITION_MIN = 0.0
+POSITION_MAX = 100.0
+
+
+def clamp_position(value: float) -> float:
+    return max(POSITION_MIN, min(POSITION_MAX, value))
+
